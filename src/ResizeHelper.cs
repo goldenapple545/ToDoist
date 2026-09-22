@@ -17,6 +17,9 @@ namespace ToDoist
         private const int Bottom = 8;
         private const double EdgeSize = 7.0;
 
+        /// <summary>Изменение размера закончилось — можно пересчитать размытие.</summary>
+        public event EventHandler ResizeEnded;
+
         private readonly Window _window;
         private readonly FrameworkElement _host;
 
@@ -70,7 +73,16 @@ namespace ToDoist
             _active = false;
             _mode = 0;
             _host.ReleaseMouseCapture();
+            Raise(ResizeEnded);
             e.Handled = true;
+        }
+
+        private static void Raise(EventHandler handler)
+        {
+            if (handler != null)
+            {
+                handler(null, EventArgs.Empty);
+            }
         }
 
         private void OnMouseMove(object sender, MouseEventArgs e)

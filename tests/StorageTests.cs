@@ -10,8 +10,8 @@ namespace ToDoist.Tests
     /// </summary>
     internal static class StorageTests
     {
-        private static int _passed;
-        private static int _failed;
+        internal static int _passed;
+        internal static int _failed;
 
         private static int Main()
         {
@@ -30,6 +30,7 @@ namespace ToDoist.Tests
                 TestAtomicWrite(dir);
                 TestCorruptFile(dir);
                 TestNormalize(dir);
+                BackdropTests.Run();
             }
             catch (Exception ex)
             {
@@ -181,7 +182,7 @@ namespace ToDoist.Tests
                 data.Tasks.Count == 1 && !string.IsNullOrEmpty(data.Tasks[0].Id));
         }
 
-        private static void Check(string name, bool condition)
+        internal static void Check(string name, bool condition)
         {
             if (condition)
             {

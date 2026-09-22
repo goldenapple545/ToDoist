@@ -8,6 +8,7 @@ using System.Windows.Input;
 using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Shapes;
 using System.Windows.Threading;
 using Microsoft.Win32;
 
@@ -20,6 +21,9 @@ namespace ToDoist
     public class MainWindowController
     {
         private const double EdgePadding = 14.0;
+
+        /// <summary>Радиус стеклянной карточки.</summary>
+        private const double GlassRadius = 20.0;
 
         private readonly CultureInfo _ru = CultureInfo.GetCultureInfo("ru-RU");
         private readonly Storage _storage;
@@ -45,6 +49,12 @@ namespace ToDoist
         private readonly Button _addButton;
         private readonly Button _minimizeButton;
         private readonly Button _closeButton;
+
+        private readonly Rectangle _backdropLayer;
+        private readonly Rectangle _noiseLayer;
+        private readonly Border _glassEdge;
+        private readonly WallpaperGlass _glass;
+        private readonly BackdropMode _plan;
 
         private AppData _data;
         private bool _suppressCheckEvents;
@@ -78,6 +88,16 @@ namespace ToDoist
             _addButton = (Button)Find("AddButton");
             _minimizeButton = (Button)Find("MinimizeButton");
             _closeButton = (Button)Find("CloseButton");
+
+            _backdropLayer = (Rectangle)Find("BackdropLayer");
+            _noiseLayer = (Rectangle)Find("NoiseLayer");
+            _glassEdge = (Border)Find("GlassEdge");
+
+            _plan = ResolveBackdropPlan();
+            ConfigureGlass();
+
+            _glass = new WallpaperGlass(_window, _card, _backdropLayer);
+            _glass.Enabled = _plan == BackdropMode.Blur;
 
             _resize = new ResizeHelper(_window, _card);
             _saveTimer = new DispatcherTimer(DispatcherPriority.Background);
@@ -175,8 +195,86 @@ namespace ToDoist
         {
             bool isLight = ThemeManager.ResolveIsLight(_data.Theme);
             ThemeManager.Apply(_window, isLight, _opacitySlider.Value, ThemeManager.ReadAccentColor());
-            _window.Background = Brushes.Transparent;
+            ApplyGlassBrushes(isLight);
             UpdateToggles();
+        }
+
+        private void ApplyGlassBrushes(bool isLight)
+        {
+            ThemeManager.ApplyGlass(_window, isLight, _opacitySlider.Value, _plan);
+            _noiseLayer.Opacity = isLight ? 0.03 : 0.045;
+        }
+
+        /// <summary>
+        /// Что и как размывать: свои обои, если окно может быть прозрачным,
+        /// иначе прежнее сплошное стекло.
+        /// </summary>
+        private static BackdropMode ResolveBackdropPlan()
+        {
+            BackdropMode forced;
+            if (BackdropSupport.TryParseBackdropArg(Program.BackdropArgument, out forced))
+            {
+                Log.Info("Стекло: режим задан ключом — " + BackdropSupport.Describe(forced));
+                return forced;
+            }
+
+            int build = BackdropSupport.ReadWindowsBuild();
+            bool transparency = BackdropSupport.ReadTransparencyEnabled();
+            BackdropMode plan = BackdropSupport.Decide(build, transparency);
+
+            Log.Info(string.Format("Стекло: сборка {0}, эффекты прозрачности {1} — {2}",
+                build, transparency ? "включены" : "выключены", BackdropSupport.Describe(plan)));
+            return plan;
+        }
+
+        /// <summary>
+        /// Размытие рисует сама карточка, поэтому окно остаётся прозрачным:
+        /// так сохраняются мягкая тень и крупные скругления.
+        /// </summary>
+        private void ConfigureGlass()
+        {
+            _window.AllowsTransparency = true;
+            _window.Background = Brushes.Transparent;
+
+            _card.CornerRadius = new CornerRadius(GlassRadius);
+            _glassEdge.CornerRadius = new CornerRadius(GlassRadius);
+            _backdropLayer.Visibility = _plan == BackdropMode.Blur
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+
+            UpdateGlassClip();
+        }
+
+        /// <summary>
+        /// Стеклянные слои обрезаются по скруглению карточки.
+        /// Клип ставим на саму карточку: у элемента с тенью и клипом-потомком
+        /// WPF может вовсе не нарисовать содержимое.
+        /// </summary>
+        private void UpdateGlassClip()
+        {
+            double width = _card.ActualWidth;
+            double height = _card.ActualHeight;
+
+            if (width <= 0 || height <= 0)
+            {
+                _card.Clip = null;
+                return;
+            }
+
+            RectangleGeometry clip = new RectangleGeometry(
+                new Rect(0, 0, width, height), GlassRadius, GlassRadius);
+            clip.Freeze();
+            _card.Clip = clip;
+        }
+
+        private void OnCardSizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            UpdateGlassClip();
+        }
+
+        private void OnResizeEnded(object sender, EventArgs e)
+        {
+            _glass.Invalidate();
         }
 
         /// <summary>Ссылки на элементы одной строки списка — чтобы не искать их по дереву.</summary>
@@ -229,7 +327,8 @@ namespace ToDoist
             row.CornerRadius = new CornerRadius(9);
             row.Padding = new Thickness(7, 5, 5, 5);
             row.Margin = new Thickness(0, 1, 0, 1);
-            row.Opacity = 0;
+            // Строка всегда видна: фейд-ин есть только у только что добавленной задачи
+            // (см. AnimateAppear), иначе строки пропадали бы до наведения курсора.
             row.SetResourceReference(Border.BackgroundProperty, "HoverBrush");
             visuals.Row = row;
 
@@ -458,6 +557,8 @@ namespace ToDoist
             _closeButton.Click += OnCloseClick;
             _opacitySlider.ValueChanged += OnOpacityChanged;
             _headerBar.MouseLeftButtonDown += OnHeaderMouseDown;
+            _card.SizeChanged += OnCardSizeChanged;
+            _resize.ResizeEnded += OnResizeEnded;
             _window.PreviewKeyDown += OnWindowKeyDown;
             _window.Closing += OnWindowClosing;
             _window.Activated += OnWindowActivated;
@@ -470,6 +571,9 @@ namespace ToDoist
         {
             _input.Focus();
             Keyboard.Focus(_input);
+            _glass.Refresh(true);
+            Log.Info("Стекло: " + BackdropSupport.Describe(_plan) +
+                (_plan == BackdropMode.Blur ? " (" + _glass.Status + ")" : string.Empty));
         }
 
         private void OnAddClick(object sender, RoutedEventArgs e)
@@ -552,7 +656,6 @@ namespace ToDoist
                 return;
             }
 
-            Animate(visuals.Row, 1.0, 120);
             Animate(visuals.Delete, 1.0, 120);
         }
 
@@ -562,11 +665,6 @@ namespace ToDoist
             if (visuals == null)
             {
                 return;
-            }
-
-            if (visuals.Row != _selectedRow)
-            {
-                Animate(visuals.Row, 0.0, 160);
             }
 
             Animate(visuals.Delete, 0.0, 160);
@@ -582,12 +680,12 @@ namespace ToDoist
 
             if (_selectedRow != null && _selectedRow != visuals.Row)
             {
-                Animate(_selectedRow, 0.0, 120);
+                ApplyRowSelection(_selectedRow.Tag as RowVisuals, false);
             }
 
             _selectedRow = visuals.Row;
             _selectedTask = visuals.Task;
-            Animate(visuals.Row, 1.0, 120);
+            ApplyRowSelection(visuals, true);
         }
 
         private static RowVisuals VisualsOf(object sender)
@@ -600,6 +698,21 @@ namespace ToDoist
         {
             element.BeginAnimation(UIElement.OpacityProperty,
                 new DoubleAnimation(opacity, TimeSpan.FromMilliseconds(milliseconds)));
+        }
+
+        /// <summary>
+        /// Подсветка выбранной строки — той, которую удалит клавиша Delete.
+        /// Прозрачность строки не трогаем: она отвечает только за фейд-ин новой задачи.
+        /// </summary>
+        private static void ApplyRowSelection(RowVisuals visuals, bool selected)
+        {
+            if (visuals == null || visuals.Row == null)
+            {
+                return;
+            }
+
+            visuals.Row.SetResourceReference(Border.BackgroundProperty,
+                selected ? "RowSelectedBrush" : "HoverBrush");
         }
 
         private void OnHeaderMouseDown(object sender, MouseButtonEventArgs e)
@@ -678,7 +791,20 @@ namespace ToDoist
                 ? "Поверх всех окон: включено"
                 : "Поверх всех окон: выключено";
             _themeButton.ToolTip = ThemeManager.DescribeTheme(_data.Theme) +
-                " (нажмите, чтобы сменить)";
+                " (нажмите, чтобы сменить)" + Environment.NewLine + DescribeGlass();
+        }
+
+        /// <summary>Подпись активного стекла — в тултипе кнопки темы (и в журнале).</summary>
+        private string DescribeGlass()
+        {
+            string glass = BackdropSupport.Describe(_plan);
+
+            if (_plan == BackdropMode.Blur && _glass.Enabled)
+            {
+                glass += " (" + _glass.Status + ")";
+            }
+
+            return glass;
         }
 
         private void OnOpacityChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -688,7 +814,7 @@ namespace ToDoist
                 return;
             }
 
-            ApplyTheme();
+            ApplyGlassBrushes(ThemeManager.ResolveIsLight(_data.Theme));
             SaveSoon();
         }
 
@@ -735,6 +861,8 @@ namespace ToDoist
                 _lastSystemLight = light;
                 RefreshSystemTheme();
             }
+
+            _glass.Refresh(false);
         }
 
         private void OnSaveTimerTick(object sender, EventArgs e)
@@ -783,6 +911,7 @@ namespace ToDoist
             _saveTimer.Stop();
             _watchTimer.Stop();
             SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
+            _glass.Dispose();
             SaveState();
             Log.Info("Сохранено. Задач: " + _data.Tasks.Count);
         }
@@ -906,6 +1035,8 @@ namespace ToDoist
             easing.EasingMode = EasingMode.EaseOut;
 
             DoubleAnimation fade = new DoubleAnimation(1.0, TimeSpan.FromMilliseconds(170));
+            // Базовая прозрачность строки — 1, поэтому старт фейда задаём явно.
+            fade.From = 0.0;
             fade.EasingFunction = easing;
             element.BeginAnimation(UIElement.OpacityProperty, fade);
 

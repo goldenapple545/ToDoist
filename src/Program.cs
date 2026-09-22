@@ -9,9 +9,13 @@ namespace ToDoist
 {
     internal static class Program
     {
+        /// <summary>Значение ключа --backdrop=… для проверки режимов стекла.</summary>
+        internal static string BackdropArgument;
+
         [STAThread]
-        private static void Main()
+        private static void Main(string[] args)
         {
+            BackdropArgument = BackdropSupport.ParseBackdropArgument(args);
             Log.Init();
             AppDomain.CurrentDomain.UnhandledException += OnDomainException;
             AppDomain.CurrentDomain.ProcessExit += OnProcessExit;

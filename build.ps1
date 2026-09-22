@@ -124,10 +124,13 @@ Write-Host ('Build OK: {0} ({1:N0} bytes)' -f $appOut, (Get-Item -LiteralPath $a
 if (-not $SkipTests) {
     $testSources = @(
         (Join-Path $testDir 'StorageTests.cs'),
+        (Join-Path $testDir 'BackdropTests.cs'),
         (Join-Path $srcDir 'TaskItem.cs'),
         (Join-Path $srcDir 'AppData.cs'),
         (Join-Path $srcDir 'Log.cs'),
-        (Join-Path $srcDir 'Storage.cs')
+        (Join-Path $srcDir 'Storage.cs'),
+        (Join-Path $srcDir 'BackdropSupport.cs'),
+        (Join-Path $srcDir 'GlassSupport.cs')
     )
     foreach ($file in $testSources) {
         if (-not (Test-Path -LiteralPath $file)) { throw "Missing test source: $file" }

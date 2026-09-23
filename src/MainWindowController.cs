@@ -413,7 +413,8 @@ namespace ToDoist
             if (visuals.Task.Done)
             {
                 visuals.Text.TextDecorations = TextDecorations.Strikethrough;
-                visuals.Text.Opacity = 0.45;
+                // Не 0.45: ореол гаснет вместе с текстом, и зачёркнутая строка почти исчезала.
+                visuals.Text.Opacity = 0.55;
             }
             else
             {

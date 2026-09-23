@@ -30,6 +30,11 @@
     <SolidColorBrush x:Key="DangerBrush" Color="#E0483A"/>
     <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
 
+    <!-- Тени текста и иконок ThemeManager кладёт в ресурсы окна сам: в светлой теме
+         их нет вовсе (текст держит тинт стекла и сохраняет ClearType), в тёмной —
+         чёрная тень, смещённая вниз-вправо. Пока ключа нет, DynamicResource
+         оставляет Effect пустым — именно это и нужно светлой теме. -->
+
     <!-- Стекло: значения по умолчанию, ThemeManager подменяет их при смене темы -->
     <SolidColorBrush x:Key="GlassSheenBrush" Color="Transparent"/>
     <SolidColorBrush x:Key="GlassEdgeBrush" Color="#33FFFFFF"/>
@@ -50,7 +55,9 @@
         <Setter.Value>
           <ControlTemplate TargetType="Button">
             <Border x:Name="Bg" CornerRadius="8" Background="{TemplateBinding Background}">
-              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              <!-- Тень только на глифе: подложка кнопки при наведении остаётся чистой -->
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Effect="{DynamicResource IconShadow}"/>
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsMouseOver" Value="True">
@@ -72,7 +79,8 @@
         <Setter.Value>
           <ControlTemplate TargetType="Button">
             <Border x:Name="Bg" CornerRadius="8" Background="{TemplateBinding Background}">
-              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Effect="{DynamicResource IconShadow}"/>
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsMouseOver" Value="True">
@@ -98,6 +106,8 @@
       <Setter Property="FontSize" Value="13"/>
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="Focusable" Value="False"/>
+      <!-- Тень под всей кнопкой: акцентная плашка целиком отделяется от обоев -->
+      <Setter Property="Effect" Value="{DynamicResource IconShadow}"/>
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="Button">
@@ -129,6 +139,7 @@
           <ControlTemplate TargetType="CheckBox">
             <Grid Width="20" Height="20" Background="Transparent">
               <Border x:Name="Ring" CornerRadius="10" Background="Transparent"
+                      Effect="{DynamicResource IconShadow}"
                       BorderThickness="1.4" BorderBrush="{DynamicResource SubtleBrush}"/>
               <Border x:Name="Fill" CornerRadius="10" Opacity="0"
                       Background="{DynamicResource AccentBrush}"/>
@@ -186,11 +197,14 @@
         <Setter.Value>
           <ControlTemplate TargetType="Button">
             <Border x:Name="Bg" CornerRadius="7" Background="{TemplateBinding Background}">
-              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              <ContentPresenter x:Name="Glyph" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Effect="{DynamicResource IconShadow}"/>
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsMouseOver" Value="True">
                 <Setter TargetName="Bg" Property="Background" Value="{DynamicResource DangerBrush}"/>
+                <!-- На плотной красной плашке ореол только мутил бы глиф -->
+                <Setter TargetName="Glyph" Property="Effect" Value="{x:Null}"/>
                 <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
               </Trigger>
               <Trigger Property="IsPressed" Value="True">
@@ -219,7 +233,8 @@
                     BorderBrush="{TemplateBinding BorderBrush}"
                     BorderThickness="{TemplateBinding BorderThickness}">
               <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center"
-                            Margin="{TemplateBinding Padding}"/>
+                            Margin="{TemplateBinding Padding}"
+                            Effect="{DynamicResource TextShadow}"/>
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsKeyboardFocused" Value="True">
@@ -322,6 +337,7 @@
     <!-- Текст задачи -->
     <Style x:Key="TaskTitle" TargetType="TextBlock">
       <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+      <Setter Property="Effect" Value="{DynamicResource TextShadow}"/>
       <Setter Property="FontSize" Value="14"/>
       <Setter Property="TextWrapping" Value="Wrap"/>
       <Setter Property="VerticalAlignment" Value="Center"/>
@@ -331,6 +347,7 @@
     <!-- Метка «вчера» / дата у невыполненных задач прошлых дней -->
     <Style x:Key="TaskBadge" TargetType="TextBlock">
       <Setter Property="Foreground" Value="{DynamicResource SubtleBrush}"/>
+      <Setter Property="Effect" Value="{DynamicResource TextShadow}"/>
       <Setter Property="FontSize" Value="10"/>
       <Setter Property="Margin" Value="6,0,0,2"/>
       <Setter Property="VerticalAlignment" Value="Bottom"/>
@@ -382,9 +399,11 @@
           <StackPanel VerticalAlignment="Top" Margin="0,3,8,0">
             <TextBlock x:Name="TitleText" Text="Сегодня" FontSize="15" FontWeight="SemiBold"
                        TextTrimming="CharacterEllipsis"
+                       Effect="{DynamicResource TextShadow}"
                        Foreground="{DynamicResource TextBrush}"/>
             <TextBlock x:Name="SubtitleText" Text="Пусто" FontSize="11" Margin="0,3,0,0"
                        TextTrimming="CharacterEllipsis"
+                       Effect="{DynamicResource TextShadow}"
                        Foreground="{DynamicResource SubtleBrush}"/>
           </StackPanel>
 
@@ -408,6 +427,7 @@
             <TextBox x:Name="TaskInput" Style="{StaticResource GlassTextBox}" MaxLength="240"/>
             <TextBlock x:Name="InputPlaceholder" Text="Что нужно сделать?"
                        Margin="14,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"
+                       Effect="{DynamicResource TextShadow}"
                        Foreground="{DynamicResource SubtleBrush}"/>
           </Grid>
 
@@ -429,6 +449,7 @@
         <TextBlock x:Name="EmptyText" Grid.Row="2" Visibility="Collapsed"
                    HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center"
                    TextWrapping="Wrap" FontSize="12.5" Margin="14,0,14,0"
+                   Effect="{DynamicResource TextShadow}"
                    Foreground="{DynamicResource SubtleBrush}"/>
 
         <!-- Прогресс и нижняя строка -->
@@ -447,6 +468,7 @@
                   VerticalAlignment="Center"/>
 
           <TextBlock x:Name="FooterText" Grid.Column="2" FontSize="11" VerticalAlignment="Center"
+                     Effect="{DynamicResource TextShadow}"
                      Foreground="{DynamicResource SubtleBrush}"/>
         </Grid>
       </Grid>

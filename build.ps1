@@ -125,12 +125,14 @@ if (-not $SkipTests) {
     $testSources = @(
         (Join-Path $testDir 'StorageTests.cs'),
         (Join-Path $testDir 'BackdropTests.cs'),
+        (Join-Path $testDir 'TextShadowTests.cs'),
         (Join-Path $srcDir 'TaskItem.cs'),
         (Join-Path $srcDir 'AppData.cs'),
         (Join-Path $srcDir 'Log.cs'),
         (Join-Path $srcDir 'Storage.cs'),
         (Join-Path $srcDir 'BackdropSupport.cs'),
-        (Join-Path $srcDir 'GlassSupport.cs')
+        (Join-Path $srcDir 'GlassSupport.cs'),
+        (Join-Path $srcDir 'TextShadowSupport.cs')
     )
     foreach ($file in $testSources) {
         if (-not (Test-Path -LiteralPath $file)) { throw "Missing test source: $file" }

@@ -31,6 +31,7 @@ namespace ToDoist.Tests
                 TestCorruptFile(dir);
                 TestNormalize(dir);
                 BackdropTests.Run();
+                TextShadowTests.Run();
             }
             catch (Exception ex)
             {

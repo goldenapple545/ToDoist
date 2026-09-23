@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 using Microsoft.Win32;
 
@@ -149,11 +150,17 @@ namespace ToDoist
             Color hover;
             Color divider;
             Color input;
+            byte textRed;
+            byte textGreen;
+            byte textBlue;
+
+            // Цвет текста берём из TextShadowSupport: там же подобрана пара «текст — тень».
+            TextShadowSupport.TextColor(isLight, out textRed, out textGreen, out textBlue);
+            text = Color.FromRgb(textRed, textGreen, textBlue);
 
             if (isLight)
             {
                 glassBase = Color.FromRgb(0xFB, 0xFB, 0xFC);
-                text = Color.FromRgb(0x1B, 0x1B, 0x1F);
                 subtle = Color.FromRgb(0x74, 0x74, 0x7C);
                 hover = Color.FromArgb(0x14, 0x10, 0x10, 0x18);
                 divider = Color.FromArgb(0x24, 0x00, 0x00, 0x00);
@@ -162,7 +169,6 @@ namespace ToDoist
             else
             {
                 glassBase = Color.FromRgb(0x17, 0x17, 0x1B);
-                text = Color.FromRgb(0xF2, 0xF2, 0xF5);
                 subtle = Color.FromRgb(0x9E, 0x9E, 0xA6);
                 hover = Color.FromArgb(0x1E, 0xFF, 0xFF, 0xFF);
                 divider = Color.FromArgb(0x28, 0xFF, 0xFF, 0xFF);
@@ -182,6 +188,27 @@ namespace ToDoist
             // Выбранная строка списка (её удалит Delete) — лёгкая заливка акцентом.
             root.Resources["RowSelectedBrush"] = Frozen(new SolidColorBrush(
                 Color.FromArgb(0x2E, accent.R, accent.G, accent.B)));
+
+            // Тени: в светлой теме их нет вовсе (текст держит тинт и сохраняет ClearType),
+            // в тёмной — чёрная тень, смещённая вниз-вправо.
+            ApplyShadow(root, "TextShadow", TextShadowSupport.Text(isLight));
+            ApplyShadow(root, "IconShadow", TextShadowSupport.Icon(isLight));
+        }
+
+        /// <summary>
+        /// Кладёт эффект в ресурсы окна. Если тень выключена, ключ убирается:
+        /// DynamicResource вернёт Effect к значению по умолчанию (null), и WPF
+        /// снова включит ClearType — с любым Effect текст рисуется без него.
+        /// </summary>
+        private static void ApplyShadow(FrameworkElement root, string key, ShadowSpec spec)
+        {
+            if (!TextShadowSupport.IsVisible(spec))
+            {
+                root.Resources.Remove(key);
+                return;
+            }
+
+            root.Resources[key] = Shadow(spec);
         }
 
         /// <summary>
@@ -309,6 +336,22 @@ namespace ToDoist
         {
             double luma = (0.299 * background.R + 0.587 * background.G + 0.114 * background.B) / 255.0;
             return luma > 0.66 ? Color.FromRgb(0x1B, 0x1B, 0x1F) : Colors.White;
+        }
+
+        /// <summary>
+        /// Эффект из спецификации. Фрозенный экземпляр переиспользуется всеми элементами:
+        /// иначе WPF держал бы отдельную промежуточную поверхность на каждую копию.
+        /// </summary>
+        private static DropShadowEffect Shadow(ShadowSpec spec)
+        {
+            DropShadowEffect effect = new DropShadowEffect();
+            effect.Color = Color.FromArgb(spec.Alpha, spec.Red, spec.Green, spec.Blue);
+            effect.BlurRadius = spec.BlurRadius;
+            effect.ShadowDepth = spec.ShadowDepth;
+            effect.Direction = spec.Direction;
+            effect.Opacity = spec.Opacity;
+            effect.Freeze();
+            return effect;
         }
 
         private static SolidColorBrush Frozen(SolidColorBrush brush)
